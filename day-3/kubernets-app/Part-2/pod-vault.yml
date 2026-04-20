@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-app
+  namespace: ivolve
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: mysql-app
+
+  template:
+    metadata:
+      labels:
+        app: mysql-app
+
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "mysql-app"
+        vault.hashicorp.com/agent-inject-secret-config: "kv/mysql"
+
+    spec:
+      serviceAccountName: default
+
+      initContainers:
+- name: vault-init
+  image: busybox
+  command:
+    - sh
+    - -c
+    - |
+      cat /vault/secrets/config > /tmp/mysql.env
+
+containers:
+- name: mysql
+  image: mysql:8
+  command: ["/bin/sh", "-c"]
+  args:
+    - |
+      export $(cat /tmp/mysql.env | xargs)
+      exec docker-entrypoint.sh mysqld
